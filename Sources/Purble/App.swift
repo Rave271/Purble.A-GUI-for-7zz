@@ -1,5 +1,5 @@
-import AppKit
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 enum Phase: Equatable {
@@ -7,24 +7,18 @@ enum Phase: Equatable {
     case failed(String)
 }
 
-func fileSizeText(_ url: URL) -> String {
-    let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-    return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
-}
-
 @main
-struct ArchiverApp: App {
+struct PurbleApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
     var body: some Scene {
-        WindowGroup("Archiver") { ContentView() }
+        WindowGroup("Purble") { ContentView() }
             .windowResizability(.contentSize)
         Settings { SettingsView() }
     }
-
 }
 
 struct ContentView: View {
@@ -39,15 +33,19 @@ struct ContentView: View {
     @State private var task: Task<Void, Never>?
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             dropZone
             if archive != nil { outputRow }
             if needsPassword { passwordField }
             if phase != .idle { progressSection }
             actionRow
         }
-        .padding(24)
+        .padding(28)
         .frame(width: 460)
+        .background(Theme.black)
+        .foregroundStyle(Theme.white)
+        .font(.system(size: 12, design: .monospaced))
+        .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: phase)
         .animation(.easeInOut(duration: 0.2), value: needsPassword)
         .animation(.easeInOut(duration: 0.2), value: archive)
@@ -58,32 +56,23 @@ struct ContentView: View {
     private var dropZone: some View {
         VStack(spacing: 8) {
             Image(systemName: archive == nil ? "arrow.down.doc" : "doc.zipper")
-                .font(.system(size: 34))
-                .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary)
+                .font(.system(size: 30, weight: .thin))
+                .foregroundStyle(Theme.purple)
             Text(archive?.lastPathComponent ?? "Drop an archive here")
-                .font(.headline)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 .lineLimit(1)
                 .truncationMode(.middle)
             if let volumes {
-                Text(volumes.summary).foregroundStyle(.secondary)
+                Text(volumes.summary).foregroundStyle(Theme.dim)
             } else {
-                Text("or click to choose").foregroundStyle(.secondary)
+                Text("or click to choose").foregroundStyle(Theme.dim)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 130)
         .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(
-                    dropTargeted ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(
-                    dropTargeted ? Color.accentColor : Color.secondary.opacity(0.4),
-                    style: StrokeStyle(lineWidth: 2, dash: [7]))
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .background(dropTargeted ? Theme.purple.opacity(0.15) : Color.clear)
+.selectionFrame(dashed: archive == nil && !dropTargeted)
+        .contentShape(Rectangle())
         .onTapGesture { if phase != .running { chooseArchive() } }
         .onDrop(of: [UTType.fileURL], isTargeted: $dropTargeted) { providers in
             guard phase != .running, let provider = providers.first else { return false }
@@ -96,61 +85,69 @@ struct ContentView: View {
     }
 
     private var outputRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "folder").foregroundStyle(.secondary)
-            Text(outputFolder.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? "")
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            Button("Change…") { chooseFolder() }
-                .disabled(phase == .running)
-        }
+        VStack(spacing: 6) {
+            SectionLabel(text: "Output")
+            HStack(spacing: 8) {
+                Image(systemName: "folder").foregroundStyle(Theme.purple)
+                Text(outputFolder.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? "")
+                    .foregroundStyle(Theme.dim)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Button("Change") { chooseFolder() }
+                    .buttonStyle(WireButton())
+                    .disabled(phase == .running)
+            }
+            .padding(10)
+.selectionFrame(color: Theme.line)        }
     }
 
     private var passwordField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lock.fill").foregroundStyle(.secondary)
-            SecureField("Password", text: $password)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { start() }
-        }
+        VStack(spacing: 6) {
+            SectionLabel(text: "Password")
+            HStack(spacing: 8) {
+                Image(systemName: "lock").foregroundStyle(Theme.purple)
+                SecureField("Required to open this archive", text: $password)
+                    .textFieldStyle(.plain)
+                    .onSubmit { start() }
+            }
+            .padding(10)
+.selectionFrame(color: Theme.line)        }
     }
 
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: "Status")
             if phase == .running || phase == .success {
-                ProgressView(value: Double(progress), total: 100)
+                WireProgress(value: Double(progress) / 100)
             }
-            HStack(alignment: .top, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
                 Image(systemName: statusIcon).foregroundStyle(statusColor)
                 Text(statusText)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
                 Spacer()
                 if phase == .running {
-                    Text("\(progress)%").monospacedDigit().foregroundStyle(.secondary)
+                    Text("\(progress)%").monospacedDigit().foregroundStyle(Theme.dim)
                 }
             }
-            .font(.callout)
         }
     }
 
     @ViewBuilder private var actionRow: some View {
-        HStack {
+        HStack(spacing: 10) {
             switch phase {
             case .running:
                 Button("Cancel") { task?.cancel() }
+                    .buttonStyle(WireButton())
             case .success:
                 Button("Show in Finder") { revealOutput() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(WireButton(prominent: true))
                 Button("Extract another") { reset() }
-                    .controlSize(.large)
+                    .buttonStyle(WireButton())
             default:
                 Button("Extract") { start() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(WireButton(prominent: true))
                     .keyboardShortcut(.defaultAction)
                     .disabled(archive == nil || outputFolder == nil)
             }
@@ -173,19 +170,18 @@ struct ContentView: View {
     private var statusIcon: String {
         switch phase {
         case .idle, .running: return "arrow.triangle.2.circlepath"
-        case .success: return "checkmark.circle.fill"
-        case .wrongPassword: return "lock.fill"
-        case .cancelled: return "stop.circle"
-        case .failed: return "exclamationmark.triangle.fill"
+        case .success: return "checkmark.square.fill"
+        case .wrongPassword: return "lock.square.fill"
+        case .cancelled: return "xmark.square"
+        case .failed: return "exclamationmark.square.fill"
         }
     }
 
     private var statusColor: Color {
         switch phase {
-        case .success: return Color.green
-        case .wrongPassword: return Color.orange
-        case .failed: return Color.red
-        default: return Color.secondary
+        case .success, .running: return Theme.purple
+        case .idle, .cancelled: return Theme.dim
+        case .wrongPassword, .failed: return Theme.white
         }
     }
 
@@ -227,6 +223,7 @@ struct ContentView: View {
 
     @MainActor private func start() {
         guard let archive, let outputFolder, phase != .running else { return }
+
         // Re-scan so a part added since the drop gets picked up.
         let set = VolumeSet.resolve(archive)
         volumes = set
@@ -234,12 +231,13 @@ struct ContentView: View {
             phase = .failed(missingText(set))
             return
         }
+
         guard let binary = SevenZipLocator.find() else {
-            phase = .failed(
-                "7zz not found. Open Settings (⌘,) to choose it, or run: brew install sevenzip")
+            phase = .failed("7zz not found. Open Settings (⌘,) to choose it, or run: brew install sevenzip")
             return
         }
         let engine = SevenZipEngine(binary: binary)
+
         phase = .running
         progress = 0
         let pwd = password.isEmpty ? nil : password

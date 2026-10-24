@@ -4,17 +4,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "Engine",
+    name: "Purble",
     platforms: [.macOS(.v13)],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .executableTarget(
-            name: "Engine"
+            name: "Purble"
         ),
         .testTarget(
-            name: "EngineTests",
-            dependencies: ["Engine"]
+            name: "PurbleTests",
+            dependencies: ["Purble"]
         ),
     ],
     swiftLanguageModes: [.v6]
