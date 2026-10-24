@@ -1,0 +1,18 @@
+import Foundation
+
+let engine = SevenZipEngine(binary: URL(fileURLWithPath: "/Users/raghavverma/engine/bin/7zz"))
+
+for await event in engine.extract(archive: "/Users/raghavverma/Downloads/locked2.7z",
+                                  to: "/Users/raghavverma/Downloads/out3",
+                                  password: "nope") {
+    switch event {
+    case .progress(let percent):
+        print("progress:", percent)
+    case .finished(let outcome):
+        switch outcome {
+        case .success: print("Done!")
+        case .wrongPassword: print("Wrong password, try again")
+        case .failed(let log): print("Failed:\n", log)
+        }
+    }
+}
